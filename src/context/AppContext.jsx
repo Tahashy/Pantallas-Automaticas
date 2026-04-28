@@ -20,18 +20,25 @@ export function AppProvider({ children }) {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [c, s, sch, ann, pref] = await Promise.all([
+      const results = await Promise.allSettled([
         contentApi.getAll(),
         screensApi.getAll(),
         schedulesApi.getAll(),
         announcementsApi.getActive(),
         preferencesApi.get(),
       ])
-      setContent(c.data || [])
-      setScreens(s.data || [])
-      setSchedules(sch.data || [])
-      setAnnouncements(ann.data || [])
-      if (pref.data) setPreferences(pref.data)
+
+      const [c, s, sch, ann, pref] = results
+
+      if (c.status === 'fulfilled') setContent(c.value.data || [])
+      if (s.status === 'fulfilled') setScreens(s.value.data || [])
+      if (sch.status === 'fulfilled') setSchedules(sch.value.data || [])
+      if (ann.status === 'fulfilled') setAnnouncements(ann.value.data || [])
+      if (pref.status === 'fulfilled' && pref.value.data) setPreferences(pref.value.data)
+      
+      if (results.some(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error))) {
+        console.warn('Algunos datos no se cargaron correctamente')
+      }
     } catch (err) {
       showToast('Error cargando datos', 'error')
     } finally {
